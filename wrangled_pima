@@ -1,0 +1,1 @@
+up_write_table(wrangled_pima, 'wrangled_pima.csv')
