@@ -38,8 +38,12 @@ def naive_bayes(table, evidence_row, target):
   #return your 2 results in a list
   return [neg, pos]
 
-
 def metrics(zipped_list):
+  assert isinstance(zipped_list, list), f'Parameter is not a list'
+  assert all([isinstance(i, list) for i in zipped_list]), f'Parameter is not a list of lists'
+  assert all([len(i) == 2 for i in zipped_list]), f'Parameter is not a zipped list - one or more values is not a pair of items'
+  assert all([isinstance(a,(int,float)) and isinstance(b,(int,float)) for a,b in zipped_list]), f'zipped_list contains a non-int or non-float'
+  assert all([float(a) in [0.0,1.0] and float(b) in [0.0,1.0] for a,b in zipped_list]), f'zipped_list contains a non-binary value'
   #first compute the sum of all 4 cases. See code above
   tn = sum([1 if pair==[0,0] else 0 for pair in zipped_list])
   tp = sum([1 if pair==[1,1] else 0 for pair in zipped_list])
@@ -52,4 +56,58 @@ def metrics(zipped_list):
   accuracy = (tp + tn) / (tp+tn+fp+fn) if (tp+tn+fp+fn) else 0
   f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) else 0
   #finally, return the dictionary
-  return {'Precision': precision, 'Recall': recall, 'F1': f1, 'Accuracy': accuracy}
+  result = {'Precision': precision, 'Recall': recall, 'F1': f1, 'Accuracy': accuracy}
+  return result
+  
+def test_load():
+  return 'loaded'
+
+from sklearn.ensemble import RandomForestClassifier
+
+def run_random_forest(train, test, target, n):
+  X = up_drop_column(train, target)
+  y = up_get_column(train, target)
+
+  k_feature_table = up_drop_column(test, target)
+  k_actuals = up_get_column(test, target)
+
+  clf = RandomForestClassifier(n, max_depth=2, random_state=0)
+
+  clf.fit(X, y)
+  probs = clf.predict_proba(k_feature_table)
+  pos_probs = [p for n,p in probs]
+
+  all_mets = []
+  for t in thresholds:
+    all_predictions = [1 if pos>t else 0 for pos in pos_probs]
+    pred_act_list = up_zip_lists(all_predictions, k_actuals)
+    mets = metrics(pred_act_list)
+    mets['Threshold'] = t
+    all_mets = all_mets + [mets]
+
+  metrics_table = up_metrics_table(all_mets)
+  metrics_table
+
+  return metrics_table
+
+def try_archs(full_table, target, architectures, thresholds):
+
+  train_table, test_table = up_train_test_split(full_table, target, .4)
+
+  for arch in architectures:
+    all_results = up_neural_net(train_table, test_table, arch, target)
+
+    all_mets = []
+    for threshold in thresholds:
+      all_predictions = [1 if pos>threshold else 0 for neg, pos in all_results]
+      pred_act_list = up_zip_lists(all_predictions, up_get_column(test_table, target))
+
+      mets = metrics(pred_act_list)
+      mets['Threshold'] = threshold
+      all_mets += [mets]
+
+    print(f'Architecture: {arch}')
+    print(up_metrics_table(all_mets))
+
+  return None
+
